@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="lo">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOUKKHASERM - Live Game Lobby Dashboard</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #000000;
+    color: #f8fafc;
+    min-height: 100vh;
+    width: 100vw;
+    overflow-x: hidden;
+    padding: 16px;
+    position: relative;
+  }
+
+  /* พื้นหลังเต็มจอ 100% */
+  .game-wallpaper-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: #05050a;
+    background-size: cover;
+    background-position: center;
+    opacity: 0.45;
+    z-index: 0;
+    animation: bgBreathe 8s ease-in-out infinite alternate;
+  }
+
+  .bg-video {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    object-fit: cover;
+    opacity: 0.45;
+    z-index: 0;
+    display: none;
+  }
+
+  @keyframes bgBreathe {
+    0% { transform: scale(1); }
+    100% { transform: scale(1.04); }
+  }
+
+  /* โครงสร้างหลัก */
+  .full-lobby {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    min-height: calc(100vh - 32px);
+    display: grid;
+    grid-template-columns: 450px 1fr;
+    gap: 18px;
+  }
+
+  @media (max-width: 980px) {
+    .full-lobby { grid-template-columns: 1fr; }
+  }
+
+  /* ฝั่งซ้าย: เวทีตัวละครเกม */
+  .character-stage {
+    position: relative;
+    background: rgba(10, 10, 18, 0.78);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(236, 72, 153, 0.55);
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    overflow: hidden;
+    box-shadow: 0 0 30px rgba(236, 72, 153, 0.3);
+  }
+
+  .player-badge {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.85);
+    border-left: 4px solid #ec4899;
+    padding: 10px 14px;
+    border-radius: 10px;
+    z-index: 3;
+    gap: 8px;
+  }
+
+  .btn-select-hero {
+    background: linear-gradient(135deg, #ec4899, #8b5cf6);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(236, 72, 153, 0.45);
+    transition: transform 0.2s;
+  }
+  .btn-select-hero:hover { transform: scale(1.04); }
+
+  /* กรอบแสดงตัวละคร (รองรับทั้งรูปภาพและวิดีโอเคลื่อนไหว) */
+  .hero-frame {
+    width: 100%;
+    height: 420px;
+    position: relative;
+    border-radius: 14px;
+    overflow: hidden;
+    margin: 12px 0;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .hero-live-media {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    filter: drop-shadow(0 0 18px rgba(236, 72, 153, 0.65));
+  }
+
+  /* เอฟเฟกต์ขยับหายใจสำหรับไฟล์ภาพนิ่ง */
+  .animate-idle {
+    animation: heroIdleMotion 3.2s ease-in-out infinite;
+  }
+
+  @keyframes heroIdleMotion {
+    0%, 100% { transform: scale(1) translateY(0px); }
+    50% { transform: scale(1.035) translateY(-7px); }
+  }
+
+  /* แสงออร่าวิบวับสไตล์เกมมือถือ */
+  .sparkle-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(circle at 50% 80%, rgba(236, 72, 153, 0.25), transparent 65%);
+    animation: auraPulse 2.5s infinite alternate;
+  }
+
+  @keyframes auraPulse {
+    0% { opacity: 0.4; }
+    100% { opacity: 1; }
+  }
+
+  .upload-hint {
+    position: absolute;
+    text-align: center;
+    padding: 20px;
+    color: #f472b6;
+    font-size: 14px;
+    line-height: 1.7;
+    z-index: 2;
+  }
+
+  /* ฝั่งขวา: แดชบอร์ดข้อมูล */
+  .dashboard-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+  }
+
+  .top-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  @media (max-width: 1150px) {
+    .top-row { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: rgba(12, 14, 24, 0.85);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 18px;
+    padding: 18px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.8);
+  }
+
+  .overlay {
+    background: rgba(5, 6, 12, 0.82);
+    border-radius: 12px;
+    padding: 14px;
+  }
+
+  .top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .btn-img {
+    background: linear-gradient(135deg, #0284c7, #2563eb);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+
+  .temp { font-size: 46px; font-weight: 900; margin: 10px 0; color: #38bdf8; }
+  .grid { display: flex; gap: 10px; margin-bottom: 12px; }
+  .box { flex: 1; background: rgba(255, 255, 255, 0.06); padding: 10px; border-radius: 10px; }
+  .clock-box { font-size: 14px; margin-bottom: 12px; font-weight: bold; color: #cbd5e1; }
+  .live { background: rgba(239, 68, 68, 0.25); color: #f87171; border: 1px solid #ef4444; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+
+  .btn-ref {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: #fff;
+    border: none;
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+  }
+
+  .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .legend { font-size: 12px; display: flex; gap: 12px; font-weight: bold; }
+  canvas { width: 100%; height: 220px; display: block; border-radius: 10px; background: rgba(5, 6, 12, 0.65); }
+
+  .map-container { width: 100%; height: 255px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.15); }
+  .map-container iframe { width: 100%; height: 100%; border: none; }
+</style>
+</head>
+<body>
+
+<!-- พื้นหลังเต็มจอ (รองรับทั้งภาพและวิดีโอ) -->
+<div class="game-wallpaper-bg" id="fullBg"></div>
+<video class="bg-video" id="fullBgVideo" autoplay loop muted playsinline></video>
+
+<div class="full-lobby">
+  <!-- ฝั่งซ้าย: ตัวละครเกมของคุณ -->
+  <div class="character-stage">
+    <div class="player-badge">
+      <div>
+        <div style="font-size:11px; color:#ec4899; font-weight:bold;">GAME LOBBY • LIVE</div>
+        <div style="font-size:16px; font-weight:900;">ສຸກກະເສີມ (SOUKKHASERM)</div>
+      </div>
+      <label class="btn-select-hero">
+        🎬 เลือกรูป / คลิปเกม
+        <input type="file" id="heroInput" accept="image/*,video/*" style="display:none;">
+      </label>
+    </div>
+
+    <div class="hero-frame">
+      <div class="upload-hint" id="hintBox">
+        กดปุ่ม <b>"🎬 เลือกรูป / คลิปเกม"</b> ด้านบน<br>
+        • เลือก <b>ไฟล์รูปภาพ</b> (Layla) = ขยับหายใจอัตโนมัติ<br>
+        • เลือก <b>ไฟล์วิดีโออัดหน้าจอเกม</b> = ขยับเหมือนในเกม 100%
+      </div>
+      <img src="" id="heroImg" class="hero-live-media animate-idle" alt="Game Character" style="display:none;">
+      <video src="" id="heroVideo" class="hero-live-media" autoplay loop muted playsinline style="display:none;"></video>
+      <div class="sparkle-overlay"></div>
+    </div>
+
+    <div style="font-size:12px; color:#f472b6; text-align:center; font-weight:bold;">
+      ✨ รองรับทั้งภาพนิ่งขยับได้ และวิดีโอตัวละครเคลื่อนไหวจริง
+    </div>
+  </div>
+
+  <!-- ฝั่งขวา: แดชบอร์ดสภาพอากาศ + แผนที่ + กราฟแท่งเทียน -->
+  <div class="dashboard-grid">
+    <div class="top-row">
+      <!-- การ์ดสภาพอากาศ -->
+      <div class="card" id="bgCard">
+        <div class="overlay">
+          <div class="top">
+            <div>
+              <h2 id="cityTitle" style="font-size:22px; color:#fff;">Vientiane</h2>
+              <small id="statusText" style="color:#94a3b8;">Live Weather System</small>
+            </div>
+            <label class="btn-img">
+              🖼️ เปลี่ยนพื้นหลังการ์ด
+              <input type="file" id="picInput" accept="image/*" style="display:none;">
+            </label>
+          </div>
+
+          <div class="temp" id="temp">30.6°C</div>
+
+          <div class="grid">
+            <div class="box"><small style="color:#94a3b8;">ຄວາມຊຸ່ມຊື່ນ</small><br><b id="hum" style="font-size:17px;">50%</b></div>
+            <div class="box"><small style="color:#94a3b8;">ຄວາມໄວລົມ</small><br><b id="wind" style="font-size:17px;">8.4 km/h</b></div>
+          </div>
+
+          <div class="clock-box">
+            เวลาปัจจุบัน: <span id="clock" style="color:#fbbf24; font-size:19px;">--:--:--</span> <span class="live">LIVE</span>
+          </div>
+
+          <button class="btn-ref" onclick="fetchRealWeather()">ສຸກກະເສີມ</button>
+        </div>
+      </div>
+
+      <!-- การ์ดแผนที่ Google Maps -->
+      <div class="card">
+        <div class="chart-header">
+          <strong style="font-size:15px; color:#e2e8f0;">🗺️ แผนที่ดาวเทียม & GPS (Vientiane)</strong>
+        </div>
+        <div class="map-container">
+          <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3794.4674751486!2d102.6331!3d17.9757!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31246881c2f9d6a3%3A0x9d1b6e4e0b0e0e0!2sVientiane%2C%20Laos!5e0!3m2!1sth!2sla!4v1650000000000!5m2!1sth!2sla" allowfullscreen="" loading="lazy"></iframe>
+        </div>
+      </div>
+    </div>
+
+    <!-- การ์ดกราฟแท่งเทียนอุณหภูมิ -->
+    <div class="card">
+      <div class="chart-header">
+        <strong style="font-size:15px; color:#e2e8f0;">📈 กราฟแท่งเทียนอุณหภูมิเรียลไทม์ (°C)</strong>
+        <div class="legend">
+          <span style="color:#f87171;">▲ ร้อนขึ้น</span>
+          <span style="color:#34d399;">▼ เย็นลง</span>
+        </div>
+      </div>
+      <canvas id="candleCanvas" width="760" height="220"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+  var baseTemp = 30.6;
+  var baseHum = 50;
+  var baseWind = 8.4;
+
+  var candles = [
+    { o: 29.8, h: 30.1, l: 29.6, c: 30.0 },
+    { o: 30.0, h: 30.3, l: 29.9, c: 30.2 },
+    { o: 30.2, h: 30.2, l: 29.7, c: 29.8 },
+    { o: 29.8, h: 30.0, l: 29.5, c: 29.6 },
+    { o: 29.6, h: 30.1, l: 29.5, c: 30.0 },
+    { o: 30.0, h: 30.5, l: 29.9, c: 30.4 },
+    { o: 30.4, h: 30.5, l: 30.1, c: 30.2 },
+    { o: 30.2, h: 30.7, l: 30.1, c: 30.5 },
+    { o: 30.5, h: 30.8, l: 30.4, c: 30.6 }
+  ];
+  var tickCount = 0;
+
+  // โหลดรูปภาพที่เคยบันทึกไว้เมื่อเปิดหน้าเว็บ
+  window.addEventListener("DOMContentLoaded", function() {
+    var savedHero = localStorage.getItem("savedGameHeroImg");
+    if (savedHero) {
+      applyHeroImage(savedHero);
+    }
+  });
+
+  function applyHeroImage(dataUrl) {
+    var heroImg = document.getElementById("heroImg");
+    var heroVideo = document.getElementById("heroVideo");
+    var fullBg = document.getElementById("fullBg");
+    var fullBgVideo = document.getElementById("fullBgVideo");
+    var hintBox = document.getElementById("hintBox");
+
+    heroVideo.style.display = "none";
+    fullBgVideo.style.display = "none";
+
+    heroImg.src = dataUrl;
+    heroImg.style.display = "block";
+    fullBg.style.backgroundImage = "url('" + dataUrl + "')";
+    fullBg.style.display = "block";
+    hintBox.style.display = "none";
+  }
+
+  function applyHeroVideo(videoUrl) {
+    var heroImg = document.getElementById("heroImg");
+    var heroVideo = document.getElementById("heroVideo");
+    var fullBg = document.getElementById("fullBg");
+    var fullBgVideo = document.getElementById("fullBgVideo");
+    var hintBox = document.getElementById("hintBox");
+
+    heroImg.style.display = "none";
+    fullBg.style.display = "none";
+
+    heroVideo.src = videoUrl;
+    heroVideo.style.display = "block";
+    heroVideo.play();
+
+    fullBgVideo.src = videoUrl;
+    fullBgVideo.style.display = "block";
+    fullBgVideo.play();
+
+    hintBox.style.display = "none";
+  }
+
+  // จัดการการเลือกไฟล์ (รองรับทั้งรูปภาพและวิดีโอ)
+  document.getElementById("heroInput").onchange = function(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+
+    if (file.type.startsWith("video/")) {
+      var videoUrl = URL.createObjectURL(file);
+      applyHeroVideo(videoUrl);
+    } else if (file.type.startsWith("image/")) {
+      var reader = new FileReader();
+      reader.onload = function(ev) {
+        var result = ev.target.result;
+        applyHeroImage(result);
+        try { localStorage.setItem("savedGameHeroImg", result); } catch (err) {}
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  document.getElementById("picInput").onchange = function(e) {
+    var file = e.target.files[0];
+    if (file) {
+      var reader = new FileReader();
+      reader.onload = function(ev) {
+        document.getElementById("bgCard").style.backgroundImage = "url('" + ev.target.result + "')";
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  function runClock() {
+    var d = new Date();
+    var h = ("0" + d.getHours()).slice(-2);
+    var m = ("0" + d.getMinutes()).slice(-2);
+    var s = ("0" + d.getSeconds()).slice(-2);
+    document.getElementById("clock").innerText = h + ":" + m + ":" + s;
+  }
+  setInterval(runClock, 1000);
+  runClock();
+
+  function drawCandles() {
+    var canvas = document.getElementById("candleCanvas");
+    var ctx = canvas.getContext("2d");
+    var W = canvas.width;
+    var H = canvas.height;
+    var rightMargin = 60;
+    var chartW = W - rightMargin;
+
+    ctx.clearRect(0, 0, W, H);
+
+    var minVal = 999, maxVal = -999;
+    for (var i = 0; i < candles.length; i++) {
+      if (candles[i].l < minVal) minVal = candles[i].l;
+      if (candles[i].h > maxVal) maxVal = candles[i].h;
+    }
+    minVal -= 0.4;
+    maxVal += 0.4;
+    var range = maxVal - minVal || 1;
+
+    function getY(val) {
+      return H - 25 - ((val - minVal) / range) * (H - 50);
+    }
+
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.06)";
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = "11px monospace";
+    ctx.lineWidth = 1;
+
+    for (var g = 0; g <= 5; g++) {
+      var val = minVal + (range * g) / 5;
+      var y = getY(val);
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(chartW, y);
+      ctx.stroke();
+      ctx.fillText(val.toFixed(2), chartW + 8, y + 4);
+    }
+
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+    ctx.beginPath();
+    ctx.moveTo(chartW, 0);
+    ctx.lineTo(chartW, H);
+    ctx.stroke();
+
+    var step = chartW / (candles.length + 1);
+    var candleW = Math.max(12, step * 0.52);
+
+    for (var i = 0; i < candles.length; i++) {
+      var c = candles[i];
+      var x = step * (i + 1);
+      var isHotter = c.c >= c.o;
+      var color = isHotter ? "#ef4444" : "#10b981";
+
+      var yHigh = getY(c.h);
+      var yLow = getY(c.l);
+      var yOpen = getY(c.o);
+      var yClose = getY(c.c);
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x, yHigh);
+      ctx.lineTo(x, yLow);
+      ctx.stroke();
+
+      var bodyTop = Math.min(yOpen, yClose);
+      var bodyH = Math.max(4, Math.abs(yClose - yOpen));
+      ctx.fillStyle = color;
+      ctx.fillRect(x - candleW / 2, bodyTop, candleW, bodyH);
+    }
+
+    var last = candles[candles.length - 1];
+    var lastY = getY(last.c);
+    var lastColor = last.c >= last.o ? "#ef4444" : "#10b981";
+
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = lastColor;
+    ctx.beginPath();
+    ctx.moveTo(0, lastY);
+    ctx.lineTo(chartW, lastY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = lastColor;
+    ctx.fillRect(chartW, lastY - 10, rightMargin, 20);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 11px monospace";
+    ctx.fillText(last.c.toFixed(1) + "°", chartW + 8, lastY + 4);
+  }
+
+  function updateLiveCandle() {
+    var current = candles[candles.length - 1];
+    var delta = (Math.random() * 0.5) - 0.25;
+    var nextTemp = parseFloat((current.c + delta).toFixed(2));
+
+    if (nextTemp > baseTemp + 1.5) nextTemp = baseTemp + 1.2;
+    if (nextTemp < baseTemp - 1.5) nextTemp = baseTemp - 1.2;
+
+    current.c = nextTemp;
+    if (nextTemp > current.h) current.h = nextTemp;
+    if (nextTemp < current.l) current.l = nextTemp;
+
+    tickCount++;
+    if (tickCount >= 4) {
+      tickCount = 0;
+      candles.push({ o: nextTemp, h: nextTemp, l: nextTemp, c: nextTemp });
+      if (candles.length > 16) candles.shift();
+    }
+
+    var tempEl = document.getElementById("temp");
+    tempEl.innerText = nextTemp.toFixed(1) + "°C";
+    tempEl.style.color = current.c >= current.o ? "#f87171" : "#34d399";
+
+    var h = Math.round(baseHum + (Math.random() * 2 - 1));
+    var w = (baseWind + (Math.random() * 0.6 - 0.3)).toFixed(1);
+    document.getElementById("hum").innerText = h + "%";
+    document.getElementById("wind").innerText = w + " km/h";
+
+    drawCandles();
+  }
+
+  function fetchRealWeather() {
+    fetch("https://api.open-meteo.com/v1/forecast?latitude=17.9757&longitude=102.6331&current=temperature_2m,relative_humidity_2m,wind_speed_10m")
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        if (data && data.current) {
+          baseTemp = data.current.temperature_2m;
+          baseHum = data.current.relative_humidity_2m;
+          baseWind = data.current.wind_speed_10m;
+          document.getElementById("statusText").innerText = "Connected - Vientiane Live";
+          candles[candles.length - 1].c = baseTemp;
+          drawCandles();
+        }
+      })
+      .catch(function() {
+        document.getElementById("statusText").innerText = "Simulation Mode";
+      });
+  }
+
+  setInterval(updateLiveCandle, 2500);
+  drawCandles();
+  fetchRealWeather();
+</script>
+
+</body>
+</html>
